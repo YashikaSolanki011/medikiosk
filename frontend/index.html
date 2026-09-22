@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MediKiosk | AI Clinical History Platform</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-100 font-sans text-slate-800">
+  <header class="bg-indigo-700 text-white p-4 shadow-md flex justify-between items-center">
+    <div class="flex items-center space-x-3">
+      <i class="fa-solid fa-hospital-user text-2xl text-amber-300"></i>
+      <h1 class="text-xl font-bold tracking-wide">MediKiosk <span class="text-xs bg-indigo-900 px-2 py-1 rounded">ABDM / AYUSH Ready</span></h1>
+    </div>
+    <div class="space-x-2">
+      <button onclick="switchView('kiosk')" id="kioskBtn" class="px-3 py-1.5 rounded bg-indigo-900 font-semibold text-sm">Patient Kiosk</button>
+      <button onclick="switchView('physician')" id="docBtn" class="px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-800 font-semibold text-sm">Physician Portal</button>
+    </div>
+  </header>
+
+  <div id="emergencyBanner" class="hidden bg-red-600 text-white p-4 text-center font-bold text-lg animate-pulse shadow-lg">
+    🚨 EMERGENCY RED FLAG DETECTED! PLEASE DIRECT PATIENT TO CASUALTY / EMERGENCY TRIAGE DESK IMMEDIATELY!
+  </div>
+
+  <main class="max-w-5xl mx-auto p-4">
+    <section id="kioskSection" class="bg-white rounded-xl shadow-md p-6">
+      <div id="stepRegistration">
+        <h2 class="text-xl font-bold text-slate-700 mb-4 flex items-center">
+          <i class="fa-solid fa-id-card mr-2 text-indigo-600"></i> 1. Patient Check-In & Language / मरीज पंजीकरण
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label class="block text-sm font-semibold mb-1">Full Name / पूरा नाम</label>
+            <input type="text" id="patientName" value="Ramesh Kumar" class="w-full border rounded-lg p-2.5">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold mb-1">ABHA Health ID (Optional)</label>
+            <input type="text" id="abhaId" placeholder="ABHA-91-XXXX-XXXX-XXXX" class="w-full border rounded-lg p-2.5">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold mb-1">OPD Department / विभाग</label>
+            <select id="opdDept" class="w-full border rounded-lg p-2.5">
+              <option value="General Medicine">General Medicine</option>
+              <option value="AYUSH">AYUSH (Ayurveda OPD)</option>
+              <option value="Cardiology">Cardiology</option>
+              <option value="Pediatrics">Pediatrics</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold mb-1">Language / भाषा</label>
+            <select id="langSelect" class="w-full border rounded-lg p-2.5">
+              <option value="en">English</option>
+              <option value="hi">हिंदी (Hindi)</option>
+            </select>
+          </div>
+        </div>
+        <div class="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-lg text-xs mb-4">
+          <i class="fa-solid fa-shield-halved mr-1"></i> DPDP Act 2023 Consent: Your responses and documents will be used exclusively for this clinical consultation and scrubbed from kiosk memory afterward.
+        </div>
+        <button onclick="startIntakeSession()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg text-lg">
+          Start Clinical Intake / आरंभ करें <i class="fa-solid fa-arrow-right ml-1"></i>
+        </button>
+      </div>
+
+      <div id="stepConversation" class="hidden">
+        <div class="flex justify-between items-center mb-4 pb-2 border-b">
+          <h2 class="text-xl font-bold text-slate-700" id="qTitle">Clinical Question</h2>
+          <button onclick="readQuestionAloud()" class="bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-full text-sm font-semibold flex items-center">
+            <i class="fa-solid fa-volume-high mr-2"></i> Listen / सुनें
+          </button>
+        </div>
+
+        <div id="questionContainer" class="text-2xl font-bold text-slate-800 mb-6 bg-slate-50 p-4 rounded-lg border">
+          Loading question...
+        </div>
+
+        <label class="block text-xs uppercase font-bold text-slate-400 mb-2">Tap an answer or speak below:</label>
+        <div id="optionsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6"></div>
+
+        <div class="bg-slate-50 border rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-3">
+          <div class="flex items-center space-x-3 w-full">
+            <button id="micBtn" onclick="toggleSpeech()" class="bg-rose-500 hover:bg-rose-600 text-white p-3.5 rounded-full shadow-md flex items-center justify-center">
+              <i class="fa-solid fa-microphone text-lg"></i>
+            </button>
+            <input type="text" id="transcriptInput" placeholder="Press microphone to speak or type..." class="border rounded-lg p-2.5 w-full">
+          </div>
+          <button onclick="submitCurrentAnswer()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-semibold w-full md:w-auto">
+            Next <i class="fa-solid fa-arrow-right ml-1"></i>
+          </button>
+        </div>
+      </div>
+
+      <div id="stepDocumentScan" class="hidden mt-6 pt-4 border-t">
+        <h3 class="text-lg font-bold text-slate-700 mb-2 flex items-center">
+          <i class="fa-solid fa-file-medical mr-2 text-indigo-600"></i> Scan Physical Prescriptions & Lab Reports
+        </h3>
+        <p class="text-sm text-slate-500 mb-4">Upload or photograph prior physical discharge sheets, prescriptions, or investigation slips.</p>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-indigo-500 cursor-pointer">
+            <input type="file" id="docUpload" accept="image/*" class="hidden" onchange="handleFileUpload(this)">
+            <label for="docUpload" class="cursor-pointer">
+              <i class="fa-solid fa-camera text-3xl text-slate-400 mb-2"></i>
+              <div class="font-bold text-slate-700">Snap Photo or Upload Document</div>
+              <div class="text-xs text-slate-400">PNG, JPG, or Scans</div>
+            </label>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1">Or Paste Document Clinical Text:</label>
+            <textarea id="sampleDocText" rows="3" class="w-full border rounded-lg p-2 text-xs font-mono" placeholder="Rx: Tab Metformin 500mg BD... Hb: 10.2 g/dL"></textarea>
+            <button onclick="handleTextDocUpload()" class="mt-1 bg-slate-700 text-white text-xs px-3 py-1.5 rounded hover:bg-slate-800">
+              Parse Text Record
+            </button>
+          </div>
+        </div>
+
+        <div id="uploadedDocsContainer" class="mt-4 space-y-2"></div>
+
+        <div class="mt-6 flex justify-end">
+          <button onclick="finalizeIntake()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-3 rounded-lg text-base">
+            Complete & Send to Doctor / समाप्त करें <i class="fa-solid fa-check ml-1"></i>
+          </button>
+        </div>
+      </div>
+
+      <div id="stepComplete" class="hidden text-center py-8">
+        <i class="fa-solid fa-circle-check text-5xl text-emerald-500 mb-3"></i>
+        <h2 class="text-2xl font-bold text-slate-800">Intake Successfully Completed</h2>
+        <p class="text-slate-600 mt-2 max-w-md mx-auto">Your structured clinical summary and prior records have been transmitted to the physician's screen. Please proceed to the consultation room when called.</p>
+        <button onclick="location.reload()" class="mt-6 bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-semibold">New Patient Intake</button>
+      </div>
+    </section>
+
+    <section id="physicianSection" class="hidden bg-white rounded-xl shadow-md p-6">
+      <div class="flex justify-between items-center pb-3 border-b mb-4">
+        <div>
+          <h2 class="text-xl font-bold text-slate-800 flex items-center">
+            <i class="fa-solid fa-user-doctor mr-2 text-indigo-600"></i> Physician OPD Intake Dashboard
+          </h2>
+          <div class="text-xs text-slate-500">Live feed from intake kiosks (Zero consultation time lost to history elicitation)</div>
+        </div>
+        <div class="space-x-2">
+          <button onclick="exportFHIR()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded text-xs font-semibold">
+            <i class="fa-solid fa-download mr-1"></i> Export ABDM FHIR R4 Bundle
+          </button>
+          <button onclick="purgeSession()" class="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded text-xs font-semibold">
+            <i class="fa-solid fa-trash-can mr-1"></i> Close & Scrub Record
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="md:col-span-2 bg-slate-50 p-4 rounded-lg border">
+          <h3 class="font-bold text-sm text-slate-700 mb-2">Physician-Ready Structured Intake (Editable)</h3>
+          <textarea id="physicianSummaryEditor" rows="18" class="w-full border rounded-lg p-3 text-sm font-mono text-slate-800 bg-white leading-relaxed"></textarea>
+          <div class="flex justify-end mt-2">
+            <button onclick="alert('Saved to Hospital Information System (HIS)!')" class="bg-emerald-600 text-white px-4 py-1.5 rounded text-xs font-bold">
+              Save & Sign Clinical Note
+            </button>
+          </div>
+        </div>
+
+        <div class="space-y-4">
+          <div class="bg-amber-50 border border-amber-200 p-3 rounded-lg">
+            <h4 class="text-xs font-bold text-amber-800 uppercase mb-2">⚠️ Flagged Abnormal Investigations</h4>
+            <div id="abnormalLabsList" class="text-xs space-y-1 text-slate-700">No abnormal values flagged.</div>
+          </div>
+          <div class="bg-slate-50 border p-3 rounded-lg">
+            <h4 class="text-xs font-bold text-slate-600 uppercase mb-2">Chronological Records Timeline</h4>
+            <div id="docTimelineList" class="text-xs space-y-2 text-slate-600">No documents scanned.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    let currentSessionId = null;
+    let currentQuestion = null;
+    let recognition = null;
+    let isListening = false;
+
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        document.getElementById('transcriptInput').value = transcript;
+        toggleSpeech();
+      };
+      recognition.onerror = () => toggleSpeech();
+    }
+
+    function toggleSpeech() {
+      if (!recognition) {
+        alert("Speech recognition not supported in this browser. Please use touch options.");
+        return;
+      }
+      const btn = document.getElementById('micBtn');
+      const lang = document.getElementById('langSelect').value;
+      recognition.lang = lang === 'hi' ? 'hi-IN' : 'en-IN';
+
+      if (!isListening) {
+        recognition.start();
+        isListening = true;
+        btn.classList.add('bg-amber-500', 'animate-pulse');
+      } else {
+        recognition.stop();
+        isListening = false;
+        btn.classList.remove('bg-amber-500', 'animate-pulse');
+      }
+    }
+
+    function readQuestionAloud() {
+      if (!currentQuestion || !('speechSynthesis' in window)) return;
+      const utterance = new SpeechSynthesisUtterance(currentQuestion.question_text);
+      const lang = document.getElementById('langSelect').value;
+      utterance.lang = lang === 'hi' ? 'hi-IN' : 'en-IN';
+      window.speechSynthesis.speak(utterance);
+    }
+
+    async function startIntakeSession() {
+      const payload = {
+        patient_name: document.getElementById('patientName').value,
+        abha_id: document.getElementById('abhaId').value || "ABHA-91-XXXX-XXXX-XXXX",
+        department: document.getElementById('opdDept').value,
+        language: document.getElementById('langSelect').value,
+        consent_granted: true
+      };
+
+      const res = await fetch('/api/session/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      currentSessionId = data.session_id;
+      currentQuestion = data.first_question;
+
+      document.getElementById('stepRegistration').classList.add('hidden');
+      document.getElementById('stepConversation').classList.remove('hidden');
+      renderQuestion(currentQuestion);
+    }
+
+    function renderQuestion(q) {
+      if (q.is_complete) {
+        document.getElementById('stepConversation').classList.add('hidden');
+        document.getElementById('stepDocumentScan').classList.remove('hidden');
+        return;
+      }
+      currentQuestion = q;
+      document.getElementById('questionContainer').innerText = q.question_text;
+      const optsDiv = document.getElementById('optionsContainer');
+      optsDiv.innerHTML = '';
+
+      q.options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = "p-3 bg-slate-100 hover:bg-indigo-50 hover:border-indigo-500 border rounded-lg font-medium text-left text-sm transition";
+        btn.innerText = opt;
+        btn.onclick = () => {
+          document.getElementById('transcriptInput').value = opt;
+          submitCurrentAnswer();
+        };
+        optsDiv.appendChild(btn);
+      });
+      document.getElementById('transcriptInput').value = '';
+      readQuestionAloud();
+    }
+
+    async function submitCurrentAnswer() {
+      const text = document.getElementById('transcriptInput').value.trim();
+      if (!text) return;
+
+      const res = await fetch('/api/chat/submit-answer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: currentSessionId,
+          question_id: currentQuestion.question_id,
+          answer_text: text
+        })
+      });
+      const data = await res.json();
+
+      if (data.emergency_alert) {
+        document.getElementById('emergencyBanner').classList.remove('hidden');
+        alert("⚠️ CRITICAL SYMPTOM DETECTED: " + data.triage.matched_categories.join(", "));
+        return;
+      }
+
+      renderQuestion(data.next_question);
+    }
+
+    async function handleFileUpload(input) {
+      if (!input.files || !input.files[0]) return;
+      const file = input.files[0];
+      const form = new FormData();
+      form.append('session_id', currentSessionId);
+      form.append('file', file);
+
+      const res = await fetch('/api/documents/upload', { method: 'POST', body: form });
+      const data = await res.json();
+
+      const container = document.getElementById('uploadedDocsContainer');
+      const card = document.createElement('div');
+      card.className = "p-2.5 bg-slate-50 border rounded text-xs flex justify-between";
+      card.innerHTML = `<span><strong>${data.extracted_data.document_name}</strong> (${data.extracted_data.date})</span> <span class="text-indigo-600">${data.extracted_data.medications.length} meds, ${data.extracted_data.investigations.length} labs</span>`;
+      container.appendChild(card);
+    }
+
+    async function handleTextDocUpload() {
+      const text = document.getElementById('sampleDocText').value.trim();
+      if (!text) return;
+
+      const form = new FormData();
+      form.append('session_id', currentSessionId);
+      form.append('raw_text', text);
+
+      const res = await fetch('/api/documents/upload', { method: 'POST', body: form });
+      const data = await res.json();
+
+      const container = document.getElementById('uploadedDocsContainer');
+      const card = document.createElement('div');
+      card.className = "p-2.5 bg-slate-50 border rounded text-xs flex justify-between";
+      card.innerHTML = `<span><strong>${data.extracted_data.document_name}</strong> (${data.extracted_data.date})</span> <span class="text-indigo-600">${data.extracted_data.medications.length} meds, ${data.extracted_data.investigations.length} labs</span>`;
+      container.appendChild(card);
+      document.getElementById('sampleDocText').value = '';
+    }
+
+    async function finalizeIntake() {
+      const res = await fetch(`/api/summary/finalize?session_id=${currentSessionId}`, { method: 'POST' });
+      const summary = await res.json();
+
+      document.getElementById('stepDocumentScan').classList.add('hidden');
+      document.getElementById('stepComplete').classList.remove('hidden');
+      loadPhysicianView();
+    }
+
+    async function loadPhysicianView() {
+      if (!currentSessionId) return;
+      const res = await fetch(`/api/physician/summary/${currentSessionId}`);
+      const data = await res.json();
+
+      document.getElementById('physicianSummaryEditor').value = data.summary.physician_summary_markdown;
+
+      const labsList = document.getElementById('abnormalLabsList');
+      labsList.innerHTML = '';
+      if (data.summary.abnormal_labs.length > 0) {
+        data.summary.abnormal_labs.forEach(l => {
+          const item = document.createElement('div');
+          item.className = "bg-white p-1.5 border border-red-200 rounded font-semibold text-red-600";
+          item.innerText = `${l.parameter}: ${l.value} ${l.unit} [${l.status}]`;
+          labsList.appendChild(item);
+        });
+      } else {
+        labsList.innerHTML = 'All reported lab values within normal reference limits.';
+      }
+
+      const timeline = document.getElementById('docTimelineList');
+      timeline.innerHTML = '';
+      (data.session.documents || []).forEach(d => {
+        const item = document.createElement('div');
+        item.className = "bg-white p-2 border rounded";
+        item.innerHTML = `<div class="font-bold">${d.date} - ${d.document_name}</div><div class="text-slate-500">${d.documented_diagnoses.join(', ') || 'General consultation'}</div>`;
+        timeline.appendChild(item);
+      });
+    }
+
+    function switchView(view) {
+      if (view === 'kiosk') {
+        document.getElementById('kioskSection').classList.remove('hidden');
+        document.getElementById('physicianSection').classList.add('hidden');
+      } else {
+        document.getElementById('kioskSection').classList.add('hidden');
+        document.getElementById('physicianSection').classList.remove('hidden');
+        loadPhysicianView();
+      }
+    }
+
+    async function exportFHIR() {
+      if (!currentSessionId) return;
+      window.open(`/api/fhir/export/${currentSessionId}`, '_blank');
+    }
+
+    async function purgeSession() {
+      if (!currentSessionId) return;
+      await fetch(`/api/session/purge/${currentSessionId}`, { method: 'DELETE' });
+      alert("Session data scrubbed from kiosk memory.");
+      location.reload();
+    }
+  </script>
+</body>
+</html>
